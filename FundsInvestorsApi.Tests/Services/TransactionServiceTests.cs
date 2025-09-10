@@ -11,6 +11,9 @@ using Xunit;
 
 namespace FundsInvestorsApi.Tests.Services
 {
+    /// <summary>
+    /// Unit tests for TransactionService using mocked repository and AutoMapper.
+    /// </summary>
     public class TransactionServiceTests
     {
         private readonly Mock<ITransactionRepository> _repoMock;
@@ -27,14 +30,14 @@ namespace FundsInvestorsApi.Tests.Services
         [Fact]
         public async Task GetAllAsync_ShouldReturnMappedTransactionDtos()
         {
-            // Arrange
+            // Arrange: mock repository returning a list of transactions and mapper returning DTOs
             var transactions = new List<Transaction>
             {
                 new Transaction
                 {
                     TransactionId = Guid.NewGuid(),
                     InvestorId = Guid.NewGuid(),
-                    Type = FundsInvestorsApi.Models.TransactionType.Subscription,
+                    Type = Models.TransactionType.Subscription,
                     Amount = 1000m,
                     TransactionDate = DateTime.UtcNow
                 }
@@ -45,7 +48,7 @@ namespace FundsInvestorsApi.Tests.Services
                 {
                     TransactionId = transactions[0].TransactionId,
                     InvestorId = transactions[0].InvestorId,
-                    Type = FundsInvestorsApi.DTOs.TransactionType.Subscription,
+                    Type = DTOs.TransactionType.Subscription,
                     Amount = 1000m,
                     TransactionDate = transactions[0].TransactionDate
                 }
@@ -56,7 +59,7 @@ namespace FundsInvestorsApi.Tests.Services
             // Act
             var result = await _service.GetAllAsync();
 
-            // Assert
+            // Assert: verify repository call, mapper call, and returned data
             Assert.Equal(transactionDtos, result);
             _repoMock.Verify(r => r.GetAllAsync(), Times.Once);
             _mapperMock.Verify(m => m.Map<IEnumerable<TransactionDto>>(transactions), Times.Once);
@@ -65,13 +68,13 @@ namespace FundsInvestorsApi.Tests.Services
         [Fact]
         public async Task GetByIdAsync_ShouldReturnMappedTransactionDto()
         {
-            // Arrange
+            // Arrange: mock single transaction and mapped DTO
             var id = Guid.NewGuid();
             var transaction = new Transaction
             {
                 TransactionId = id,
                 InvestorId = Guid.NewGuid(),
-                Type = FundsInvestorsApi.Models.TransactionType.Subscription,
+                Type = Models.TransactionType.Subscription,
                 Amount = 500m,
                 TransactionDate = DateTime.UtcNow
             };
@@ -79,7 +82,7 @@ namespace FundsInvestorsApi.Tests.Services
             {
                 TransactionId = id,
                 InvestorId = transaction.InvestorId,
-                Type = FundsInvestorsApi.DTOs.TransactionType.Subscription,
+                Type = DTOs.TransactionType.Subscription,
                 Amount = 500m,
                 TransactionDate = transaction.TransactionDate
             };
@@ -98,14 +101,14 @@ namespace FundsInvestorsApi.Tests.Services
         [Fact]
         public async Task GetByIdAsync_NotFound_ReturnsNull()
         {
-            // Arrange
+            // Arrange: repository returns null for unknown transaction
             var id = Guid.NewGuid();
             _repoMock.Setup(r => r.GetByIdAsync(id)).ReturnsAsync((Transaction)null);
 
             // Act
             var result = await _service.GetByIdAsync(id);
 
-            // Assert
+            // Assert: service should return null
             Assert.Null(result);
             _repoMock.Verify(r => r.GetByIdAsync(id), Times.Once);
         }
@@ -113,11 +116,11 @@ namespace FundsInvestorsApi.Tests.Services
         [Fact]
         public async Task CreateAsync_ShouldAddAndReturnTransactionDto()
         {
-            // Arrange
+            // Arrange: prepare create DTO and corresponding mapped entity and DTO
             var createDto = new TransactionCreateDto
             {
                 InvestorId = Guid.NewGuid(),
-                Type = FundsInvestorsApi.DTOs.TransactionType.Subscription,
+                Type = DTOs.TransactionType.Subscription,
                 Amount = 1000m,
                 TransactionDate = DateTime.UtcNow
             };
@@ -125,7 +128,7 @@ namespace FundsInvestorsApi.Tests.Services
             {
                 TransactionId = Guid.NewGuid(),
                 InvestorId = createDto.InvestorId,
-                Type = FundsInvestorsApi.Models.TransactionType.Subscription,
+                Type = Models.TransactionType.Subscription,
                 Amount = createDto.Amount,
                 TransactionDate = createDto.TransactionDate
             };
@@ -133,7 +136,7 @@ namespace FundsInvestorsApi.Tests.Services
             {
                 TransactionId = transaction.TransactionId,
                 InvestorId = transaction.InvestorId,
-                Type = FundsInvestorsApi.DTOs.TransactionType.Subscription,
+                Type = DTOs.TransactionType.Subscription,
                 Amount = transaction.Amount,
                 TransactionDate = transaction.TransactionDate
             };
@@ -146,7 +149,7 @@ namespace FundsInvestorsApi.Tests.Services
             // Act
             var result = await _service.CreateAsync(createDto);
 
-            // Assert
+            // Assert: verify mapping, repository calls, and returned DTO
             Assert.Equal(transactionDto, result);
             _mapperMock.Verify(m => m.Map<Transaction>(createDto), Times.Once);
             _repoMock.Verify(r => r.AddAsync(transaction), Times.Once);

@@ -20,7 +20,7 @@ namespace FundsInvestorsApi.Controllers
         [HttpPost("token")]
         public IActionResult GenerateToken()
         {
-            // 1️⃣ Create claims (you can customize as needed)
+            // Create claims (you can customize as needed)
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, "testuser"),
@@ -28,11 +28,11 @@ namespace FundsInvestorsApi.Controllers
                 new Claim("role", "Admin") // Optional
             };
 
-            // 2️⃣ Get secret key from configuration or environment
+            // Get secret key from configuration or environment
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "ReplaceWithSecureKey"));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            // 3️⃣ Create the token
+            // Create the token
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
@@ -41,7 +41,7 @@ namespace FundsInvestorsApi.Controllers
                 signingCredentials: creds
             );
 
-            // 4️⃣ Return the token string
+            // Return the token string
             return Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token) });
         }
     }
