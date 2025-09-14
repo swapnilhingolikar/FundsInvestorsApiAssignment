@@ -2,6 +2,7 @@
 using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Models;
 using FundsInvestorsApi.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FundsInvestorsApi.Services
 {
@@ -14,77 +15,114 @@ namespace FundsInvestorsApi.Services
     {
         private readonly IFundRepository _repo;
         private readonly IMapper _mapper;
+        private readonly ILogger<FundService> _logger;
 
         /// <summary>
-        /// Constructor with dependency injection for repository and AutoMapper.
+        /// Constructor with dependency injection for repository, AutoMapper, and logger.
         /// </summary>
-        /// <param name="repo">Fund repository for data access.</param>
-        /// <param name="mapper">AutoMapper instance for object mapping.</param>
-        public FundService(IFundRepository repo, IMapper mapper)
+        public FundService(IFundRepository repo, IMapper mapper, ILogger<FundService> logger)
         {
             _repo = repo;
             _mapper = mapper;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Retrieves all funds.
-        /// </summary>
-        /// <returns>List of funds as DTOs.</returns>
+        /// <inheritdoc/>
         public async Task<IEnumerable<FundDto>> GetAllAsync()
         {
-            var entities = await _repo.GetAllAsync();        // Fetch all funds
-            return _mapper.Map<IEnumerable<FundDto>>(entities); // Map to DTOs
+            try
+            {
+                var entities = await _repo.GetAllAsync();
+                _logger.LogInformation("Retrieved {Count} funds", entities.Count());
+                return _mapper.Map<IEnumerable<FundDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all funds");
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Retrieves a fund by its ID.
-        /// </summary>
-        /// <param name="id">Unique identifier of the fund.</param>
-        /// <returns>Fund details if found, otherwise null.</returns>
+        /// <inheritdoc/>
         public async Task<FundDto?> GetByIdAsync(Guid id)
         {
-            var entity = await _repo.GetByIdAsync(id);   // Fetch by ID
-            return _mapper.Map<FundDto?>(entity);        // Map to DTO
+            try
+            {
+                var entity = await _repo.GetByIdAsync(id);
+                if (entity == null)
+                {
+                    _logger.LogWarning("Fund with ID {FundId} not found", id);
+                    return null;
+                }
+
+                _logger.LogInformation("Retrieved fund {FundId}", id);
+                return _mapper.Map<FundDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving fund with ID {FundId}", id);
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Creates a new fund.
-        /// </summary>
-        /// <param name="dto">Fund details for creation.</param>
-        /// <returns>Created fund as DTO.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when dto is null.</exception>
+        /// <inheritdoc/>
         public async Task<FundDto> CreateAsync(FundCreateDto dto)
         {
             if (dto == null)
             {
-                throw new ArgumentNullException(nameof(dto)); // Validate input
+                _logger.LogWarning("Attempted to create a fund with null DTO");
+                throw new ArgumentNullException(nameof(dto));
             }
 
-            var entity = _mapper.Map<Fund>(dto);   // Map DTO → entity
-            await _repo.AddAsync(entity);          // Add to repository
-            await _repo.SaveChangesAsync();        // Commit changes
-            return _mapper.Map<FundDto>(entity);   // Map back → DTO
+            try
+            {
+                var entity = _mapper.Map<Fund>(dto);
+                await _repo.AddAsync(entity);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Created new fund {FundId} with name {Name}", entity.FundId, entity.Name);
+                return _mapper.Map<FundDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating fund {@FundDto}", dto);
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Updates an existing fund.
-        /// </summary>
-        /// <param name="dto">Updated fund details.</param>
+        /// <inheritdoc/>
         public async Task UpdateAsync(FundUpdateDto dto)
         {
-            var entity = _mapper.Map<Fund>(dto);   // Map DTO → entity
-            await _repo.UpdateAsync(entity);       // Update repository
-            await _repo.SaveChangesAsync();        // Commit changes
+            try
+            {
+                var entity = _mapper.Map<Fund>(dto);
+                await _repo.UpdateAsync(entity);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Updated fund {FundId}", entity.FundId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating fund {@FundUpdateDto}", dto);
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Deletes a fund by its ID.
-        /// </summary>
-        /// <param name="id">Fund ID.</param>
+        /// <inheritdoc/>
         public async Task DeleteAsync(Guid id)
         {
-            await _repo.DeleteAsync(id);     // Remove from repository
-            await _repo.SaveChangesAsync();  // Commit changes
+            try
+            {
+                await _repo.DeleteAsync(id);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Deleted fund {FundId}", id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting fund {FundId}", id);
+                throw;
+            }
         }
     }
 }

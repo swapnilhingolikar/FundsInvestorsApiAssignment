@@ -2,6 +2,7 @@
 using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Models;
 using FundsInvestorsApi.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FundsInvestorsApi.Services
 {
@@ -14,71 +15,111 @@ namespace FundsInvestorsApi.Services
     {
         private readonly IInvestorRepository _repo;
         private readonly IMapper _mapper;
+        private readonly ILogger<InvestorService> _logger;
 
         /// <summary>
-        /// Constructor with dependency injection of repository and AutoMapper.
+        /// Constructor with dependency injection of repository, AutoMapper, and logger.
         /// </summary>
-        /// <param name="repo">Investor repository for data access.</param>
-        /// <param name="mapper">AutoMapper instance for mapping between DTOs and entities.</param>
-        public InvestorService(IInvestorRepository repo, IMapper mapper)
+        public InvestorService(IInvestorRepository repo, IMapper mapper, ILogger<InvestorService> logger)
         {
             _repo = repo;
             _mapper = mapper;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Retrieves all investors from the repository.
-        /// </summary>
-        /// <returns>List of investors as DTOs.</returns>
+        /// <inheritdoc/>
         public async Task<IEnumerable<InvestorDto>> GetAllAsync()
         {
-            var entities = await _repo.GetAllAsync(); // Fetch all investors
-            return _mapper.Map<IEnumerable<InvestorDto>>(entities); // Map to DTO list
+            try
+            {
+                var entities = await _repo.GetAllAsync();
+                _logger.LogInformation("Retrieved {Count} investors", entities.Count());
+                return _mapper.Map<IEnumerable<InvestorDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all investors");
+                throw new ApplicationException("Unable to retrieve investors at this time.", ex);
+            }
         }
 
-        /// <summary>
-        /// Retrieves a single investor by ID.
-        /// </summary>
-        /// <param name="id">Unique identifier of the investor.</param>
-        /// <returns>Investor details if found, otherwise null.</returns>
         public async Task<InvestorDto?> GetByIdAsync(Guid id)
         {
-            var entity = await _repo.GetByIdAsync(id); // Fetch by ID
-            return _mapper.Map<InvestorDto?>(entity);  // Map to DTO
+            try
+            {
+                var entity = await _repo.GetByIdAsync(id);
+                if (entity == null)
+                {
+                    _logger.LogWarning("Investor with ID {InvestorId} not found", id);
+                    return null;
+                }
+
+                _logger.LogInformation("Retrieved investor {InvestorId}", id);
+                return _mapper.Map<InvestorDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving investor with ID {InvestorId}", id);
+                throw new ApplicationException($"Unable to retrieve investor {id}.", ex);
+            }
         }
 
-        /// <summary>
-        /// Creates a new investor and saves it in the repository.
-        /// </summary>
-        /// <param name="dto">Investor details for creation.</param>
-        /// <returns>Created investor as DTO.</returns>
         public async Task<InvestorDto> CreateAsync(InvestorCreateDto dto)
         {
-            var entity = _mapper.Map<Investor>(dto); // Map DTO → entity
-            await _repo.AddAsync(entity);            // Add to repo
-            await _repo.SaveChangesAsync();          // Commit changes
-            return _mapper.Map<InvestorDto>(entity); // Map back → DTO
+            if (dto == null)
+            {
+                _logger.LogWarning("Attempted to create an investor with null DTO");
+                throw new ArgumentNullException(nameof(dto));
+            }
+
+            try
+            {
+                var entity = _mapper.Map<Investor>(dto);
+                await _repo.AddAsync(entity);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Created new investor {InvestorId} with name {Name}", entity.InvestorId, entity.FullName);
+                return _mapper.Map<InvestorDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating investor {@InvestorDto}", dto);
+                throw new ApplicationException("Unable to create investor.", ex);
+            }
         }
 
-        /// <summary>
-        /// Updates existing investor details.
-        /// </summary>
-        /// <param name="dto">Updated investor details.</param>
         public async Task UpdateAsync(InvestorUpdateDto dto)
         {
-            var entity = _mapper.Map<Investor>(dto); // Map DTO → entity
-            await _repo.UpdateAsync(entity);         // Update in repo
-            await _repo.SaveChangesAsync();          // Commit changes
+            try
+            {
+                var entity = _mapper.Map<Investor>(dto);
+                await _repo.UpdateAsync(entity);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Updated investor {InvestorId}", entity.InvestorId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating investor {@InvestorUpdateDto}", dto);
+                throw new ApplicationException($"Unable to update investor {dto.InvestorId}.", ex);
+            }
         }
 
-        /// <summary>
-        /// Deletes an investor by ID.
-        /// </summary>
-        /// <param name="id">Investor ID.</param>
         public async Task DeleteAsync(Guid id)
         {
-            await _repo.DeleteAsync(id);     // Remove from repo
-            await _repo.SaveChangesAsync();  // Commit changes
+            try
+            {
+                await _repo.DeleteAsync(id);
+                await _repo.SaveChangesAsync();
+
+                _logger.LogInformation("Deleted investor {InvestorId}", id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting investor {InvestorId}", id);
+                throw new ApplicationException($"Unable to delete investor {id}.", ex);
+            }
         }
+
     }
 }

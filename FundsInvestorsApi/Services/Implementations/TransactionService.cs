@@ -2,6 +2,7 @@ using AutoMapper;
 using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Models;
 using FundsInvestorsApi.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FundsInvestorsApi.Services
 {
@@ -14,57 +15,81 @@ namespace FundsInvestorsApi.Services
     {
         private readonly ITransactionRepository _repo;
         private readonly IMapper _mapper;
+        private readonly ILogger<TransactionService> _logger;
 
         /// <summary>
-        /// Constructor with dependency injection of repository and AutoMapper.
+        /// Constructor with dependency injection of repository, AutoMapper, and logger.
         /// </summary>
-        /// <param name="repo">Transaction repository for data access.</param>
-        /// <param name="mapper">AutoMapper instance for mapping between DTOs and entities.</param>
-        public TransactionService(ITransactionRepository repo, IMapper mapper)
+        public TransactionService(ITransactionRepository repo, IMapper mapper, ILogger<TransactionService> logger)
         {
             _repo = repo;
             _mapper = mapper;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Retrieves all transactions.
-        /// </summary>
-        /// <returns>List of transactions as DTOs.</returns>
+        /// <inheritdoc/>
         public async Task<IEnumerable<TransactionDto>> GetAllAsync()
         {
-            var entities = await _repo.GetAllAsync(); // Fetch all transactions from repository
-            return _mapper.Map<IEnumerable<TransactionDto>>(entities); // Map entities to DTOs
+            try
+            {
+                var entities = await _repo.GetAllAsync();
+                _logger.LogInformation("Retrieved {Count} transactions", entities.Count());
+                return _mapper.Map<IEnumerable<TransactionDto>>(entities);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all transactions");
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Retrieves a single transaction by its unique identifier.
-        /// </summary>
-        /// <param name="id">Transaction ID.</param>
-        /// <returns>Transaction details as DTO if found, otherwise null.</returns>
+        /// <inheritdoc/>
         public async Task<TransactionDto?> GetByIdAsync(Guid id)
         {
-            var entity = await _repo.GetByIdAsync(id); // Fetch transaction by ID
-            return _mapper.Map<TransactionDto?>(entity); // Map to DTO (nullable if not found)
+            try
+            {
+                var entity = await _repo.GetByIdAsync(id);
+                if (entity == null)
+                {
+                    _logger.LogWarning("Transaction with ID {TransactionId} not found", id);
+                    return null;
+                }
+
+                _logger.LogInformation("Retrieved transaction {TransactionId}", id);
+                return _mapper.Map<TransactionDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving transaction with ID {TransactionId}", id);
+                throw;
+            }
         }
 
-        /// <summary>
-        /// Creates a new transaction and saves it to the repository.
-        /// </summary>
-        /// <param name="dto">Transaction details for creation.</param>
-        /// <returns>Created transaction as DTO.</returns>
+        /// <inheritdoc/>
         public async Task<TransactionDto> CreateAsync(TransactionCreateDto dto)
         {
-            // Map DTO to entity model
-            var entity = _mapper.Map<Transaction>(dto);
+            if (dto == null)
+            {
+                _logger.LogWarning("Attempted to create a transaction with null DTO");
+                throw new ArgumentNullException(nameof(dto));
+            }
 
-            // Add new transaction to repository
-            await _repo.AddAsync(entity);
+            try
+            {
+                var entity = _mapper.Map<Transaction>(dto);
+                await _repo.AddAsync(entity);
+                await _repo.SaveChangesAsync();
 
-            // Persist changes to database
-            await _repo.SaveChangesAsync();
+                _logger.LogInformation("Created new transaction {TransactionId} for Investor {InvestorId} ",
+                    entity.TransactionId, entity.InvestorId);
 
-            // Map back to DTO for response
-            return _mapper.Map<TransactionDto>(entity);
+                return _mapper.Map<TransactionDto>(entity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating transaction {@TransactionDto}", dto);
+                throw;
+            }
         }
     }
 }

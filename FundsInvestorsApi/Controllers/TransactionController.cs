@@ -1,6 +1,7 @@
 ﻿using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Services;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace FundsInvestorsApi.Controllers
 {
@@ -25,7 +26,19 @@ namespace FundsInvestorsApi.Controllers
         /// </summary>
         /// <returns>List of transactions.</returns>
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync());
+        public async Task<IActionResult> GetAll()
+        {
+            try
+            {
+                var transactions = await _service.GetAllAsync();
+                return Ok(transactions);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error fetching all transactions");
+                return StatusCode(500, new { message = "An error occurred while fetching transactions." });
+            }
+        }
 
         /// <summary>
         /// Retrieves a transaction by its ID.
@@ -35,10 +48,30 @@ namespace FundsInvestorsApi.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var transaction = await _service.GetByIdAsync(id);
-            if (transaction == null) return NotFound(); // Return 404 if not found
-            return Ok(transaction);
+            if (id == Guid.Empty)
+            {
+                Log.Warning("Invalid transaction ID provided: {TransactionId}", id);
+                return BadRequest(new { message = "Transaction ID is required." });
+            }
+
+            try
+            {
+                var transaction = await _service.GetByIdAsync(id);
+                if (transaction == null)
+                {
+                    Log.Warning("Transaction with ID {TransactionId} not found", id);
+                    return NotFound(new { message = "Transaction not found." });
+                }
+
+                return Ok(transaction);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error fetching transaction with ID {TransactionId}", id);
+                return StatusCode(500, new { message = "An error occurred while fetching the transaction." });
+            }
         }
+
 
         /// <summary>
         /// Creates a new transaction.
@@ -48,9 +81,25 @@ namespace FundsInvestorsApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(TransactionCreateDto dto)
         {
-            var created = await _service.CreateAsync(dto);
-            // Return 201 Created with location header
-            return CreatedAtAction(nameof(GetById), new { id = created.TransactionId }, created);
+            // Check if the incoming model is valid
+            if (!ModelState.IsValid)
+            {
+                // Return 400 Bad Request with validation errors
+                Log.Warning("Invalid transaction data: {@TransactionDto}", dto);
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var created = await _service.CreateAsync(dto);
+                Log.Information("Transaction created with ID {TransactionId}", created.TransactionId);
+                return CreatedAtAction(nameof(GetById), new { id = created.TransactionId }, created);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error creating transaction");
+                return StatusCode(500, new { message = "An error occurred while creating the transaction." });
+            }
         }
     }
 }

@@ -7,9 +7,20 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ✅ Setup Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)   // reads from appsettings.json
+    .Enrich.FromLogContext()
+    .WriteTo.Console()                               // log to console
+    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day) // log to file
+    .CreateLogger();
+
+builder.Host.UseSerilog(); // replace default logger
 
 // Controllers + validation
 builder.Services.AddControllers()
@@ -54,7 +65,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var configuration = builder.Configuration;
-var connection = configuration.GetConnectionString("DefaultConnection") 
+var connection = configuration.GetConnectionString("DefaultConnection")
                  ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseSqlServer(connection));
 
@@ -122,4 +133,18 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 app.MapHealthChecks("/health");
-app.Run();
+
+// ✅ Ensure Serilog flushes logs on shutdown
+try
+{
+    Log.Information("Starting FundsInvestors API...");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

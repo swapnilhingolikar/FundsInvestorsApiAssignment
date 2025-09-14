@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
+using Microsoft.Extensions.Logging;
 
 namespace FundsInvestorsApi.Tests.Services
 {
@@ -18,13 +19,15 @@ namespace FundsInvestorsApi.Tests.Services
     {
         private readonly Mock<IInvestorRepository> _repoMock;
         private readonly Mock<IMapper> _mapperMock;
+        private readonly Mock<ILogger<InvestorService>> _loggerMock;
         private readonly InvestorService _service;
 
         public InvestorServiceTests()
         {
             _repoMock = new Mock<IInvestorRepository>();
             _mapperMock = new Mock<IMapper>();
-            _service = new InvestorService(_repoMock.Object, _mapperMock.Object);
+            _loggerMock = new Mock<ILogger<InvestorService>>();
+            _service = new InvestorService(_repoMock.Object, _mapperMock.Object, _loggerMock.Object);
         }
 
         [Fact]

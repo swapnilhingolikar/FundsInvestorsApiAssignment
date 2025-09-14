@@ -1,11 +1,13 @@
 using FundsInvestorsApi.Data;
 using FundsInvestorsApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace FundsInvestorsApi.Repositories
 {
     /// <summary>
     /// Repository for managing Investor entities.
+    /// Handles all database operations for Investors.
     /// </summary>
     public class InvestorRepository : IInvestorRepository
     {
@@ -13,29 +15,85 @@ namespace FundsInvestorsApi.Repositories
 
         public InvestorRepository(AppDbContext context) => _context = context;
 
-        public async Task<IEnumerable<Investor>> GetAllAsync() =>
-            await _context.Investors.ToListAsync();
+        public async Task<IEnumerable<Investor>> GetAllAsync()
+        {
+            try
+            {
+                return await _context.Investors.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error retrieving all investors");
+                throw;
+            }
+        }
 
-        public async Task<Investor?> GetByIdAsync(Guid id) =>
-            await _context.Investors.FindAsync(id);
+        public async Task<Investor?> GetByIdAsync(Guid id)
+        {
+            try
+            {
+                return await _context.Investors.FindAsync(id);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error retrieving investor with ID {InvestorId}", id);
+                throw;
+            }
+        }
 
-        public async Task AddAsync(Investor investor) =>
-            await _context.Investors.AddAsync(investor);
+        public async Task AddAsync(Investor investor)
+        {
+            try
+            {
+                await _context.Investors.AddAsync(investor);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error adding investor {@Investor}", investor);
+                throw;
+            }
+        }
 
         public Task UpdateAsync(Investor investor)
         {
-            _context.Investors.Update(investor);
-            return Task.CompletedTask;
+            try
+            {
+                _context.Investors.Update(investor);
+                return Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error updating investor {@Investor}", investor);
+                throw;
+            }
         }
 
         public async Task DeleteAsync(Guid id)
         {
-            var investor = await _context.Investors.FindAsync(id);
-            if (investor != null)
-                _context.Investors.Remove(investor);
+            try
+            {
+                var investor = await _context.Investors.FindAsync(id);
+                if (investor != null)
+                    _context.Investors.Remove(investor);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error deleting investor with ID {InvestorId}", id);
+                throw;
+            }
         }
 
-        public async Task SaveChangesAsync() =>
-            await _context.SaveChangesAsync();
+        public async Task SaveChangesAsync()
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error saving changes to the database");
+                throw;
+            }
+        }
     }
 }

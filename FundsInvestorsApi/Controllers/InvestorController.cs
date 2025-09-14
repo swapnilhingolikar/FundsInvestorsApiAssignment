@@ -1,6 +1,7 @@
 ﻿using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Services;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace FundsInvestorsApi.Controllers
 {
@@ -25,7 +26,19 @@ namespace FundsInvestorsApi.Controllers
         /// </summary>
         /// <returns>List of investors.</returns>
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _service.GetAllAsync());
+        public async Task<IActionResult> GetAll()
+        {
+            try
+            {
+                var investors = await _service.GetAllAsync();
+                return Ok(investors);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error fetching all investors");
+                return StatusCode(500, new { message = "An error occurred while fetching investors." });
+            }
+        }
 
         /// <summary>
         /// Retrieves an investor by their ID.
@@ -35,9 +48,22 @@ namespace FundsInvestorsApi.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var investor = await _service.GetByIdAsync(id);
-            if (investor == null) return NotFound(); // Return 404 if not found
-            return Ok(investor);
+            try
+            {
+                var investor = await _service.GetByIdAsync(id);
+                if (investor == null)
+                {
+                    Log.Warning("Investor with ID {InvestorId} not found", id);
+                    return NotFound(new { message = "Investor not found." });
+                }
+
+                return Ok(investor);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error fetching investor with ID {InvestorId}", id);
+                return StatusCode(500, new { message = "An error occurred while fetching the investor." });
+            }
         }
 
         /// <summary>
@@ -48,9 +74,17 @@ namespace FundsInvestorsApi.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(InvestorCreateDto dto)
         {
-            var created = await _service.CreateAsync(dto);
-            // Return 201 Created with location header
-            return CreatedAtAction(nameof(GetById), new { id = created.InvestorId }, created);
+            try
+            {
+                var created = await _service.CreateAsync(dto);
+                Log.Information("Investor created with ID {InvestorId}", created.InvestorId);
+                return CreatedAtAction(nameof(GetById), new { id = created.InvestorId }, created);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error creating investor");
+                return StatusCode(500, new { message = "An error occurred while creating the investor." });
+            }
         }
 
         /// <summary>
@@ -62,21 +96,51 @@ namespace FundsInvestorsApi.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, InvestorUpdateDto dto)
         {
-            if (id != dto.InvestorId) return BadRequest(); // Ensure route ID matches DTO ID
-            await _service.UpdateAsync(dto);
-            return NoContent(); // Return 204 No Content
+            try
+            {
+                if (id != dto.InvestorId)
+                {
+                    Log.Warning("Investor ID mismatch: route {RouteId}, body {BodyId}", id, dto.InvestorId);
+                    return BadRequest(new { message = "ID mismatch between route and request body." });
+                }
+
+                await _service.UpdateAsync(dto);
+                Log.Information("Investor with ID {InvestorId} updated", id);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error updating investor with ID {InvestorId}", id);
+                return StatusCode(500, new { message = "An error occurred while updating the investor." });
+            }
         }
 
         /// <summary>
         /// Deletes an investor by ID.
         /// </summary>
         /// <param name="id">Investor ID.</param>
-        /// <returns>NoContent if deletion successful.</returns>
+        /// <returns>Success message if deletion successful.</returns>
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await _service.DeleteAsync(id);
-            return NoContent(); // Return 204 No Content
+            try
+            {
+                var investor = await _service.GetByIdAsync(id);
+                if (investor == null)
+                {
+                    Log.Warning("Attempted to delete non-existing investor with ID {InvestorId}", id);
+                    return NotFound(new { message = "Investor not found." });
+                }
+
+                await _service.DeleteAsync(id);
+                Log.Information("Investor with ID {InvestorId} deleted", id);
+                return Ok(new { message = "Investor deleted successfully.", investorId = id });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error deleting investor with ID {InvestorId}", id);
+                return StatusCode(500, new { message = "An error occurred while deleting the investor." });
+            }
         }
     }
 }
