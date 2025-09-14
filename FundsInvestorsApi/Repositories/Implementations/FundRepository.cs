@@ -1,4 +1,5 @@
 using FundsInvestorsApi.Data;
+using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Models;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -95,5 +96,33 @@ namespace FundsInvestorsApi.Repositories
                 throw;
             }
         }
+
+        public async Task<IEnumerable<FundTransactionSummaryDto>> GetTransactionSummaryAsync()
+        {
+            // Query all funds from the database
+            return await _context.Funds
+                .Select(f => new FundTransactionSummaryDto
+                {
+                    // Assign fund ID and name
+                    FundId = f.FundId,
+                    FundName = f.Name,
+
+                    // Calculate total subscribed amount for the fund
+                    // Handle nulls using ?? and avoid exceptions if Investors or Transactions are null
+                    TotalSubscribed = (f.Investors ?? Enumerable.Empty<Investor>())        // If no investors, use empty list
+                                        .SelectMany(i => i.Transactions ?? Enumerable.Empty<Transaction>()) // Flatten all transactions
+                                        .Where(t => t.Type == FundsInvestorsApi.Models.TransactionType.Subscription) // Only Subscription transactions
+                                        .Sum(t => t.Amount), // Sum their amounts
+
+                    // Calculate total redeemed amount for the fund
+                    TotalRedeemed = (f.Investors ?? Enumerable.Empty<Investor>())
+                                        .SelectMany(i => i.Transactions ?? Enumerable.Empty<Transaction>())
+                                        .Where(t => t.Type == FundsInvestorsApi.Models.TransactionType.Redemption) // Only Redemption transactions
+                                        .Sum(t => t.Amount)
+                })
+                .ToListAsync(); // Execute query asynchronously and return list
+        }
+
+
     }
 }

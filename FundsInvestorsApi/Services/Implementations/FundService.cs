@@ -124,5 +124,21 @@ namespace FundsInvestorsApi.Services
                 throw;
             }
         }
+
+        public async Task<IEnumerable<FundTransactionSummaryDto>> GetTransactionSummaryAsync()
+        {
+            try
+            {
+                var summary = await _repo.GetTransactionSummaryAsync();
+                _logger.LogInformation("Retrieved transaction summary for {Count} funds", summary.Count());
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving transaction summary per fund");
+                throw;
+            }
+        }
+
     }
 }

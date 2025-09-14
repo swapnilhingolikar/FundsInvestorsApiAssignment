@@ -1,3 +1,4 @@
+using FundsInvestorsApi.DTOs;
 using FundsInvestorsApi.Models;
 
 namespace FundsInvestorsApi.Repositories
@@ -10,5 +11,6 @@ namespace FundsInvestorsApi.Repositories
         Task UpdateAsync(Fund fund);
         Task DeleteAsync(Guid id);
         Task SaveChangesAsync();
+        Task<IEnumerable<FundTransactionSummaryDto>> GetTransactionSummaryAsync();
     }
 }

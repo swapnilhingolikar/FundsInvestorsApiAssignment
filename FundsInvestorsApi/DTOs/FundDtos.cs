@@ -35,4 +35,12 @@ namespace FundsInvestorsApi.DTOs
 
         public DateTime LaunchDate { get; set; }
     }
+
+    public class FundTransactionSummaryDto
+    {
+        public Guid FundId { get; set; }
+        public string FundName { get; set; } = null!;
+        public decimal TotalSubscribed { get; set; }
+        public decimal TotalRedeemed { get; set; }
+    }
 }

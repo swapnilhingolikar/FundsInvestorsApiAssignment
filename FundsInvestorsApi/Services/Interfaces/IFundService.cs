@@ -9,5 +9,6 @@ namespace FundsInvestorsApi.Services
         Task<FundDto> CreateAsync(FundCreateDto dto);
         Task UpdateAsync(FundUpdateDto dto);
         Task DeleteAsync(Guid id);
+        Task<IEnumerable<FundTransactionSummaryDto>> GetTransactionSummaryAsync();
     }
 }

@@ -3,6 +3,8 @@ using FundsInvestorsApi.Models;
 using FundsInvestorsApi.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -129,6 +131,61 @@ namespace FundsInvestorsApi.Tests.Repositories
             // Assert: fund no longer exists in database
             var deleted = await context.Funds.FindAsync(fund.FundId);
             Assert.Null(deleted);
+        }
+
+        [Fact]
+        public async Task GetTransactionSummaryAsync_ShouldReturnCorrectTotals()
+        {
+            // Arrange
+            await using var context = await CreateDbContextAsync();
+
+            // Create funds
+            var fund1 = new Fund { FundId = Guid.NewGuid(), Name = "Fund A", Currency = "USD" };
+            var fund2 = new Fund { FundId = Guid.NewGuid(), Name = "Fund B", Currency = "EUR" };
+
+            // Create investors
+            var investor1 = new Investor { InvestorId = Guid.NewGuid(), FullName = "Investor 1", Fund = fund1 };
+            var investor2 = new Investor { InvestorId = Guid.NewGuid(), FullName = "Investor 2", Fund = fund2 };
+
+            // Create transactions
+            var transactions = new List<Transaction>
+            {
+                new Transaction { TransactionId = Guid.NewGuid(), Investor = investor1, Type = TransactionType.Subscription, Amount = 100 },
+                new Transaction { TransactionId = Guid.NewGuid(), Investor = investor1, Type = TransactionType.Redemption, Amount = 50 },
+                new Transaction { TransactionId = Guid.NewGuid(), Investor = investor2, Type = TransactionType.Subscription, Amount = 200 },
+                new Transaction { TransactionId = Guid.NewGuid(), Investor = investor2, Type = TransactionType.Redemption, Amount = 80 }
+            };
+
+            await context.Funds.AddRangeAsync(fund1, fund2);
+            await context.Investors.AddRangeAsync(investor1, investor2);
+            await context.Transactions.AddRangeAsync(transactions);
+            await context.SaveChangesAsync();
+
+            // Act: calculate transaction summary per fund
+            var summary = await context.Funds
+                .Select(f => new
+                {
+                    FundId = f.FundId,
+                    FundName = f.Name,
+                    TotalSubscribed = f.Investors
+                        .SelectMany(i => i.Transactions)
+                        .Where(t => t.Type == TransactionType.Subscription)
+                        .Sum(t => t.Amount),
+                    TotalRedeemed = f.Investors
+                        .SelectMany(i => i.Transactions)
+                        .Where(t => t.Type == TransactionType.Redemption)
+                        .Sum(t => t.Amount)
+                })
+                .ToListAsync();
+
+            // Assert
+            var fundASummary = summary.First(s => s.FundId == fund1.FundId);
+            Assert.Equal(100, fundASummary.TotalSubscribed);
+            Assert.Equal(50, fundASummary.TotalRedeemed);
+
+            var fundBSummary = summary.First(s => s.FundId == fund2.FundId);
+            Assert.Equal(200, fundBSummary.TotalSubscribed);
+            Assert.Equal(80, fundBSummary.TotalRedeemed);
         }
     }
 }

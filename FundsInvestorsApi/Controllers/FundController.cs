@@ -166,5 +166,29 @@ namespace FundsInvestorsApi.Controllers
                 return StatusCode(500, new { message = "An error occurred while deleting the fund." });
             }
         }
+
+        // GET: api/fund/transaction-summary
+        [HttpGet("transaction-summary")]
+        public async Task<IActionResult> GetTransactionSummary()
+        {
+            try
+            {
+                // Call the service method to get the transaction summary per fund
+                var summary = await _service.GetTransactionSummaryAsync();
+
+                // Return 200 OK with the summary data
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                // Log any unexpected errors
+                _logger.LogError(ex, "Error fetching transaction summary per fund");
+
+                // Return 500 Internal Server Error with a friendly message
+                return StatusCode(500, new { message = "An error occurred while fetching the summary." });
+            }
+        }
+
+
     }
 }
